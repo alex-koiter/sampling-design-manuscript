@@ -1,0 +1,422 @@
+---
+title: Tracer selection using composite mixtures
+author: Alex Koiter
+---
+
+## Load Libraries
+```{r}  
+library(tidyverse)
+library(ggfortify)
+library(patchwork)
+```
+
+## % classified function
+```{r}
+classify <- function(data, model, by = "site", type = "percent") {
+  if(type == "count") x <- table(as.data.frame(data)[,"site"], model$class)
+  if(type == "percent") x <- diag(prop.table(table(as.data.frame(data)[,"site"], model$class), 1)) * 100
+  x
+}
+```
+
+## Load in data
+```{r}
+geo_results <- read.csv(here::here("./notebooks/Geochemistry analysis - Copy 2.csv")) %>%
+  pivot_longer(cols = Ag:Zr, names_to = "Fingerprint", values_to = "value") %>%
+  filter(Fingerprint %in% c("Ag", "Al", "As","B","Ba","Be","Bi","Ca","Cd","Ce","Co", "Cr", "Cs", "Cu", "Fe", "Ga", "Hf", "Hg", "In", "K", "La", "Li", "Mg", "Mn", "Mo", "Nb", "Ni", "P", "Pb", "Rb", "S", "Sb", "Sc", "Se", "Sn", "Sr", "Te", "Th", "Tl", "U", "V", "Y", "Zn", "Zr")) %>% # excludes fingerprints that are below level of detection
+  dplyr::select(-X) %>% # don't need this column
+  filter(sample_design %in% c("Grid", "Transect", "Likely to erode")) 
+
+col_results <- read.csv(here::here("./notebooks/final results revised.csv")) %>%
+  pivot_longer(cols = X:B, names_to = "Fingerprint", values_to = "value") %>%
+  dplyr::select(-X.1) %>% # don't need this column
+  filter(sample_design %in% c("Grid", "Transect", "Likely to erode")) %>%
+  mutate(Fingerprint = paste0(Fingerprint, "_col")) # appended _col as some of the colour coefficients have the same id eg Boron = B and Blue also = B
+
+
+# Bind data sets
+results <- geo_results %>%
+  bind_rows(col_results) 
+
+```
+
+## Virtual mixtures
+```{r}
+proportions <- seq(0, 1, 0.05)
+
+mixtures <- results %>%
+  filter(sample_design %in% c("Grid", "Likely to erode")) %>% # excluded transects as the transects are contained with in the grid this gives us all unique samples 
+  group_by(Fingerprint, site) %>%
+  summarise(avg =  mean(value)) %>%
+  pivot_wider(names_from = site, values_from = avg) %>%
+  mutate(mix_ag = map(Agriculture, ~.x * (1 - proportions)),
+         mix_forest = map(Forest, ~.x * proportions)) %>%
+  group_by(Fingerprint, Agriculture, Forest) %>%
+  summarize(mix = map2(mix_ag, mix_forest, ~data.frame(mix = .x + .y, prop_forest = proportions))) %>%
+  unnest(mix) %>%
+  pivot_wider(id_cols = c("Fingerprint", "Agriculture", "Forest"), names_from = prop_forest, values_from = mix) 
+```
+
+
+## Range test
+```{r}
+range <- results %>%
+  group_by(site, sample_design, Fingerprint) %>%
+  summarise(upper_lim = quantile(value, 0.75),
+            lower_lim = quantile(value, 0.25)) %>%
+  group_by(Fingerprint, sample_design) %>%
+  summarise(lower_lim = min(lower_lim),
+            upper_lim = max(upper_lim)) %>%
+  ungroup() %>%
+  left_join(mixtures) %>%
+  #dplyr::select(-c(Agriculture, Forest)) %>%
+  group_by(Fingerprint, sample_design) %>%
+  mutate(pass = all(round(`0`:`1`, 5) >= round(lower_lim, 5)) & all(round(`0`:`1`, 5) <= round(upper_lim, 5)))  ## rounding as differences as small as 10^-18 were being removed otherwise
+
+## Check Li
+ggplot(data= filter(results, Fingerprint == "Li"), aes(x = sample_design, y  = value, colour = site)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 5.72) + # lower limit transect
+  geom_hline(yintercept = 15.3) + # upper limit transect
+  geom_hline(yintercept = 15.7, colour = "red") + # 0% forest
+  geom_hline(yintercept = 6.42, colour = "red") # 100% forest
+
+
+grid_range <- filter(range, pass == TRUE , sample_design == "Grid") %>%
+  pull(Fingerprint)
+
+transect_range <- filter(range, pass == TRUE , sample_design == "Transect") %>%
+  pull(Fingerprint)
+
+likely_range <- filter(range, pass == TRUE , sample_design == "Likely to erode") %>%
+  pull(Fingerprint)
+
+range_results <- filter(range, pass == TRUE) %>%
+  dplyr::select(Fingerprint, sample_design)
+
+range_results %>%
+  group_by(sample_design) %>%
+  summarise(n = length(Fingerprint))
+```
+
+
+## Mann-W test
+```{r}
+wilcox_test <- range_results %>%
+  inner_join(results) %>%
+  nest(data = c(-sample_design, -Fingerprint)) %>%
+  mutate(test = map(data, ~wilcox.test(value ~ site, data = ., exact = FALSE))) %>%
+  mutate(p_value = map_dbl(test, ~ .$p.value),
+         statistic =  map_dbl(test, ~ .$statistic))
+
+grid_wilcox <- filter(wilcox_test, p_value < 0.01 , sample_design == "Grid")
+grid_wilcox
+pull(grid_wilcox, Fingerprint)
+
+transect_wilcox <- filter(wilcox_test, p_value < 0.01 , sample_design == "Transect")
+  transect_wilcox
+  pull(transect_wilcox, Fingerprint)
+  
+likely_wilcox <- filter(wilcox_test, p_value < 0.01 , sample_design == "Likely to erode") 
+likely_wilcox
+pull(likely_wilcox, Fingerprint)
+
+wilcox_results <- filter(wilcox_test, p_value < 0.01) %>%
+  dplyr::select(Fingerprint, sample_design)
+
+wilcox_results %>%
+  group_by(sample_design) %>%
+  summarise(n = length(Fingerprint))
+```
+
+## DFA
+```{r} 
+dfa_test <- wilcox_results %>%
+  inner_join(results) %>%
+  ungroup() %>%
+  nest(data = c(-sample_design)) %>%
+  mutate(newdata = map(data, ~pivot_wider(., names_from = Fingerprint, values_from = value))) %>%
+  mutate(newdata = map(newdata, ~dplyr::select(., -sample_number))) %>%
+  mutate(test = map(newdata, ~ klaR::greedy.wilks(site ~ ., data =. , niveau = 0.1, na.action = "na.omit"))) %>%
+  mutate(Fingerprint = map(test, ~ .$results$vars)) %>%
+  mutate(wilks = map(test, ~.x$results$Wilks.lambda))
+
+grid_dfa <- dfa_test %>%
+  unnest(Fingerprint) %>%
+  filter(sample_design == "Grid") %>%
+  pull(Fingerprint)
+grid_dfa
+
+transect_dfa <- 
+  dfa_test %>%
+  unnest(Fingerprint) %>%
+  filter(sample_design == "Transect") %>%
+  pull(Fingerprint)
+transect_dfa
+
+likely_dfa <- 
+  dfa_test %>%
+  unnest(Fingerprint) %>%
+  filter(sample_design == "Likely to erode") %>%
+  pull(Fingerprint)
+likely_dfa
+```
+
+## PCA
+```{r}
+df_grid <- results %>% 
+  filter(sample_design == "Grid") %>%
+  filter(Fingerprint %in% grid_dfa) %>%
+  pivot_wider(names_from = Fingerprint, values_from = value) %>%
+  dplyr::select(-sample_design, -sample_number)
+
+df_transect<- results %>%
+  filter(sample_design == "Transect") %>%
+  filter(Fingerprint %in% transect_dfa) %>%
+  pivot_wider(names_from = Fingerprint, values_from = value) %>%
+  dplyr::select(-sample_design, -sample_number)
+
+df_likely <- results %>%
+  filter(sample_design == "Likely to erode") %>%
+  filter(Fingerprint %in% likely_dfa) %>%
+  pivot_wider(names_from = Fingerprint, values_from = value) %>%
+  dplyr::select(-sample_design, -sample_number)
+
+pca_grid <- prcomp(select(df_grid, 2:ncol(df_grid)), scale. = TRUE)
+
+autoplot(pca_grid)
+p1 <- autoplot(pca_grid, 
+               data = df_grid, 
+               colour = 'site',
+               frame = TRUE, 
+               frame.type = 'norm') +
+  theme_bw() +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  scale_fill_viridis_d(begin = 0, end = 0.6) +
+  theme(legend.title = element_blank()) +
+  labs(title = "Grid")
+p1
+
+pca_transect <- prcomp(select(df_transect, 2:ncol(df_transect)) , scale. = TRUE)
+autoplot(pca_transect)
+p2 <- autoplot(pca_transect, 
+               data = df_transect, 
+               colour = 'site', 
+               frame = TRUE, 
+               frame.type = 'norm') +
+  theme_bw() +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  scale_fill_viridis_d(begin = 0, end = 0.6) +
+  theme(legend.title = element_blank()) +
+  labs(title = "Transect")
+p2
+
+pca_likely <- prcomp(select(df_likely, 2:ncol(df_likely)) , scale. = TRUE)
+autoplot(pca_likely)
+p3 <- autoplot(pca_likely, 
+               data = df_likely, 
+               colour = 'site', 
+               frame = TRUE, 
+               frame.type = 'norm') +
+  theme_bw() +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  scale_fill_viridis_d(begin = 0, end = 0.6) +
+  theme(legend.title = element_blank())+
+  labs(title = "Likely to erode")
+p3
+```
+
+```{r}
+#| label: fig-pcaplot
+#| fig-cap: "Principle component analysis demonstrating the discriminatory ability for the selected fingerprints for the three sampling designs."
+p4 <- p1 + p2 + p3 +
+  plot_layout(guides = 'collect') & theme(legend.position = "bottom")
+p4
+```
+
+```{r}
+p5 <- autoplot(pca_grid, 
+         data = df_grid, 
+         colour = 'site',
+         frame = TRUE, 
+         frame.type = 'norm',
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3) +
+  theme_bw() +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  scale_fill_viridis_d(begin = 0, end = 0.6) +
+  theme(legend.title = element_blank()) +
+  labs(title = "Grid")
+
+grid_loading <- as.data.frame(pca_grid$rotation[,1:2]) %>%
+  mutate(element = rownames(.)) %>%
+  pivot_longer(cols = c(PC1, PC2), names_to = "PC", values_to = "value")
+
+ggplot(data = grid_loading, aes(x = element, y = value)) +
+  geom_col() +
+  facet_wrap(~PC)
+
+p6 <- autoplot(pca_transect, 
+         data = df_transect, 
+         colour = 'site',
+         frame = TRUE, 
+         frame.type = 'norm',
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3) +
+  theme_bw() +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  scale_fill_viridis_d(begin = 0, end = 0.6) +
+  theme(legend.title = element_blank()) +
+  labs(title = "Transect")
+
+transect_loading <- as.data.frame(pca_transect$rotation[,1:2]) %>%
+  mutate(element = rownames(.)) %>%
+  pivot_longer(cols = c(PC1, PC2), names_to = "PC", values_to = "value")
+
+ggplot(data = transect_loading, aes(x = element, y = value)) +
+  geom_col() +
+  facet_wrap(~PC)
+
+p7 <- autoplot(pca_likely, 
+         data = df_likely, 
+         colour = 'site',
+         frame = TRUE, 
+         frame.type = 'norm',
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3) +
+  theme_bw() +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  scale_fill_viridis_d(begin = 0, end = 0.6) +
+  theme(legend.title = element_blank()) +
+  labs(title = "Likely")
+
+likely_loading <- as.data.frame(pca_likely$rotation[,1:2]) %>%
+  mutate(element = rownames(.)) %>%
+  pivot_longer(cols = c(PC1, PC2), names_to = "PC", values_to = "value")
+
+ggplot(data = likely_loading, aes(x = element, y = value)) +
+  geom_col() +
+  facet_wrap(~PC)
+#ggsave(filename = "Figures R1/all_pca.png", plot = p4, width = 174, height = 100, units = "mm", dpi = 600)
+```
+
+```{r}
+supfig5 <- p5 + p6 + p7 +
+  plot_layout(guides = 'collect') & theme(legend.position = "bottom")
+supfig5
+
+saveRDS(supfig5, file = here::here("./images/supfig5.rds"))
+#ggsave(filename = "images/pca_loading.png", plot = p8, width = 174, height = 100, units = "mm", dpi = 600)
+```
+
+
+
+## Assess accuracy of discrimination 
+```{r}
+grid.lda <- MASS::lda(site ~ ., data = df_grid, na.action = "na.omit", CV = T)
+transect.lda <- MASS::lda(site ~ ., data = df_transect, na.action = "na.omit", CV = T)
+likely.lda <- MASS::lda(site ~ ., data = df_likely, na.action = "na.omit", CV = T)
+```
+
+### Grid 
+```{r}
+table(as.data.frame(df_grid)[,"site"], grid.lda$class)
+diag(prop.table(table(as.data.frame(df_grid)[,"site"], grid.lda$class), 1))
+```
+
+### Transect
+```{r}
+table(as.data.frame(df_transect)[,"site"], transect.lda$class)
+diag(prop.table(table(as.data.frame(df_transect)[,"site"], transect.lda$class), 1))
+```
+
+### Likely to erode
+```{r}
+table(as.data.frame(df_likely)[,"site"], likely.lda$class)
+diag(prop.table(table(as.data.frame(df_likely)[,"site"], likely.lda$class), 1))
+```
+
+###  total percent correct  
+```{r}
+sum(diag(prop.table(table(as.data.frame(df_grid)[,"site"], grid.lda$class))))
+
+sum(diag(prop.table(table(as.data.frame(df_transect)[,"site"], transect.lda$class))))
+
+sum(diag(prop.table(table(as.data.frame(df_likely)[,"site"], likely.lda$class))))
+```
+
+
+## Percent Classified correctly and Wilks Lamda
+### Grid design
+```{r}
+grid_classify <- tibble(n = 1:length(grid_dfa),
+            params = map(n, ~grid_dfa[1:.x])) %>%
+  mutate(params = map_chr(params, ~paste0(.x, collapse = " + ")),
+         f = map(params, ~as.formula(paste0("site ~ ", .x))),
+         m = map(f, ~MASS::lda(.x, data = df_grid, na.action = "na.omit", CV = TRUE)),
+         c = map_df(m, ~classify(data = df_grid, model = .x))) %>%
+  select(-n, -f, -m) %>%
+  mutate(wilks = dfa_test$wilks[dfa_test$sample_design == "Grid"][[1]])
+
+grid_classify
+```
+
+### Transect design
+```{r}
+transect_classify <- tibble(n = 1:length(transect_dfa),
+                        params = map(n, ~transect_dfa[1:.x])) %>%
+  mutate(params = map_chr(params, ~paste0(.x, collapse = " + ")),
+         f = map(params, ~as.formula(paste0("site ~ ", .x))),
+         m = map(f, ~MASS::lda(.x, data = df_transect, na.action = "na.omit", CV = TRUE)),
+         c = map_df(m, ~classify(data = df_transect, model = .x))) %>%
+  select(-n, -f, -m) %>%
+  mutate(wilks = dfa_test$wilks[dfa_test$sample_design == "Transect"][[1]])
+
+transect_classify
+```
+
+### Likely to erode design
+```{r}
+likely_classify <- tibble(n = 1:length(likely_dfa),
+                            params = map(n, ~likely_dfa[1:.x])) %>%
+  mutate(params = map_chr(params, ~paste0(.x, collapse = " + ")),
+         f = map(params, ~as.formula(paste0("site ~ ", .x))),
+         m = map(f, ~MASS::lda(.x, data = df_likely, na.action = "na.omit", CV = TRUE)),
+         c = map_df(m, ~classify(data = df_likely, model = .x))) %>%
+  select(-n, -f, -m) %>%
+  mutate(wilks = dfa_test$wilks[dfa_test$sample_design == "Likely to erode"][[1]])
+
+likely_classify
+```
+
+## Mean and SD plotting
+```{r}
+plotting3 <- results %>%
+  filter(Fingerprint %in% unique(c(grid_dfa, likely_dfa, transect_dfa))) %>%
+  group_by(Fingerprint, sample_design, site) %>%
+  summarise(avg = mean(value),
+            sd = sd(value), 
+            se = sd(value)/(n()^0.5)) %>%
+  rename("Source" = site) %>%
+  mutate(Fingerprint = as.factor(Fingerprint)) %>%
+  mutate(Fingerprint = fct_recode(Fingerprint, "italic(`a*`)" = "a_col", "italic(`b*`)" = "b_col", "italic(`c*`)" = "c_col", "italic(`h*`)" = "h_col", "italic(`x*`)" = "x_col", "`Ca (%)`" = "Ca"))
+```
+
+```{r}
+#| label: fig-sdplot-test
+#| fig-cap: "Means and standard deviations of the fingerprints used in the mixing model."
+p1 <- ggplot(data = plotting3, aes(x = sample_design, y = avg, colour = Source)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(data = plotting3, aes(ymax = avg + sd, ymin = avg -sd, x = sample_design), position = position_dodge(width = 0.5), width = 0.5) +
+  scale_colour_viridis_d(begin = 0, end = 0.6) +
+  theme_bw() +
+  labs(y = "Concentation (ppm) or value") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position = "bottom",
+        legend.title = element_blank()) +
+  facet_wrap(~Fingerprint, ncol = 4, scales = "free_y", labeller = "label_parsed")
+
+p1
+
+```

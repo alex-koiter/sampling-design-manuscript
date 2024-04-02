@@ -1,0 +1,418 @@
+---
+title: Correlations between soil colour and geochemical properties and SSA and SOM
+author: Alex Koiter
+html-table-processing: none
+---
+## Load Libraries
+```{r}
+library(tidyverse)
+library(patchwork)
+library(scales)
+library(viridis)
+library(gt)
+```
+
+## Load data
+```{r}
+psa <- read.csv(here::here("./notebooks/PSA_data.csv")) %>%
+  rename(site = Site) %>%
+  select(site, sample_number, sampling_design, dx_50, specific_surface_area) %>%
+  filter(sampling_design != "Fine scale")  
+
+om <- read.csv(here::here("./notebooks/OM_data.csv")) %>%
+  rename(site = Site, sampling_design = Sampling_Design, sample_number = Sample_Number) %>%
+  select(OM, site, sampling_design, sample_number) %>%
+  filter(sampling_design != "Fine scale") %>%
+  mutate(site = recode(site, Agricultural = "Agriculture")) 
+
+geo <- read.csv(here::here("./notebooks/Geochemistry analysis - Copy 2.csv")) %>%
+  select(-X) %>%
+  rename(sampling_design = sample_design) %>%
+  filter(sampling_design != "Fine scale") %>%
+  pivot_longer(cols = Ag:Zr, names_to = "Element", values_to = "value") %>%
+  filter(Element %in% c("Ag", "Al", "As","B","Ba","Be","Bi","Ca","Cd","Ce","Co", "Cr", "Cs", "Cu", "Fe", "Ga", "Hf", "Hg", "In", "K", "La", "Li", "Mg", "Mn", "Mo", "Nb", "Ni", "P", "Pb", "Rb", "S", "Sb", "Sc", "Se", "Sn", "Sr", "Te", "Th", "Tl", "U", "V", "Y", "Zn", "Zr")) %>%
+  pivot_wider(names_from = Element, values_from = value)
+
+colour <- read.csv(here::here("./notebooks/final results revised.csv")) %>%
+  select(-X.1) %>%
+  rename(sampling_design = sample_design) %>%
+  filter(sampling_design != "Fine scale") 
+```
+
+## Colour correlations
+```{r}
+corr_colour <- colour %>%
+  left_join(psa) %>%
+  left_join(om) %>%
+  pivot_longer(cols = X:B, names_to = "Fingerprint", values_to = "value") %>%
+  nest(data = c(-Fingerprint, -sampling_design, -site)) %>%
+  mutate(ssa_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_ssa = map_dbl(ssa_test, ~ .$p.value),
+         estimate_ssa =  map_dbl(ssa_test, ~ .$estimate)) %>%
+  mutate(d50_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_d50 = map_dbl(d50_test, ~ .$p.value),
+         estimate_d50 =  map_dbl(d50_test, ~ .$estimate)) %>%
+  mutate(om_test = map(data, ~cor.test(.$value, .$OM, method = "pearson"))) %>%
+  mutate(p_value_om = map_dbl(om_test, ~ .$p.value),
+         estimate_om =  map_dbl(om_test, ~ .$estimate)) %>%
+  select(-data, -ssa_test, -d50_test, -om_test) %>%
+  mutate(type = "Colour")
+corr_colour
+
+corr_colour2 <- colour %>%
+  left_join(psa) %>%
+  left_join(om) %>%
+  pivot_longer(cols = X:B, names_to = "Fingerprint", values_to = "value") %>%
+  nest(data = c(-Fingerprint, -sampling_design)) %>%
+  mutate(ssa_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_ssa = map_dbl(ssa_test, ~ .$p.value),
+         estimate_ssa =  map_dbl(ssa_test, ~ .$estimate)) %>%
+  mutate(d50_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_d50 = map_dbl(d50_test, ~ .$p.value),
+         estimate_d50 =  map_dbl(d50_test, ~ .$estimate)) %>%
+  mutate(om_test = map(data, ~cor.test(.$value, .$OM, method = "pearson"))) %>%
+  mutate(p_value_om = map_dbl(om_test, ~ .$p.value),
+         estimate_om =  map_dbl(om_test, ~ .$estimate)) %>%
+  select(-data, -ssa_test, -d50_test, -om_test) %>%
+  mutate(type = "Colour",
+         site = "Combined")
+corr_colour2
+```
+
+## Geochem correlations
+```{r}
+corr_geo <- geo %>%
+  left_join(psa) %>%
+  left_join(om) %>%
+  pivot_longer(cols = Ag:Zr, names_to = "Fingerprint", values_to = "value") %>%
+  nest(data = c(-Fingerprint, -sampling_design, -site)) %>%
+  mutate(ssa_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_ssa = map_dbl(ssa_test, ~ .$p.value),
+         estimate_ssa =  map_dbl(ssa_test, ~ .$estimate)) %>%
+  mutate(d50_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_d50 = map_dbl(d50_test, ~ .$p.value),
+         estimate_d50 =  map_dbl(d50_test, ~ .$estimate)) %>%
+  mutate(om_test = map(data, ~cor.test(.$value, .$OM, method = "pearson"))) %>%
+  mutate(p_value_om = map_dbl(om_test, ~ .$p.value),
+         estimate_om =  map_dbl(om_test, ~ .$estimate)) %>%
+  select(-data, -ssa_test, -d50_test, -om_test) %>%
+  mutate(type = "Geochemistry")
+
+corr_geo
+
+corr_geo2 <- geo %>%
+  left_join(psa) %>%
+  left_join(om) %>%
+  pivot_longer(cols = Ag:Zr, names_to = "Fingerprint", values_to = "value") %>%
+  nest(data = c(-Fingerprint, -sampling_design)) %>%
+  mutate(ssa_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_ssa = map_dbl(ssa_test, ~ .$p.value),
+         estimate_ssa =  map_dbl(ssa_test, ~ .$estimate)) %>%
+  mutate(d50_test = map(data, ~cor.test(.$value, .$specific_surface_area, method = "pearson"))) %>%
+  mutate(p_value_d50 = map_dbl(d50_test, ~ .$p.value),
+         estimate_d50 =  map_dbl(d50_test, ~ .$estimate)) %>%
+  mutate(om_test = map(data, ~cor.test(.$value, .$OM, method = "pearson"))) %>%
+  mutate(p_value_om = map_dbl(om_test, ~ .$p.value),
+         estimate_om =  map_dbl(om_test, ~ .$estimate)) %>%
+  select(-data, -ssa_test, -d50_test, -om_test) %>%
+  mutate(type = "Geochemistry",
+         site = "Combined")
+corr_geo2
+```
+
+## Geochemistry plotting
+```{r}
+plot_geo <- corr_geo %>%
+  bind_rows(corr_geo2) %>%
+  mutate(site = fct_relevel(site, c("Agriculture", "Forest", "Combined"))) 
+
+plot_geo %>%
+  filter(p_value_ssa < 0.05) %>%
+  group_by(site) %>%
+  summarise(n = n())
+
+plot_geo %>%
+  filter(p_value_ssa < 0.05) %>%
+  group_by(site, sampling_design) %>%
+  summarise(n = n())
+
+plot_geo_2 <- geo %>%
+  left_join(psa) %>%
+  left_join(om) %>%
+  pivot_longer(cols = Ag:Zr, names_to = "Fingerprint", values_to = "value") %>%
+  pivot_longer(cols = c("specific_surface_area", "OM", "dx_50"), names_to = "property", values_to = "value2")
+
+trial <- plot_geo %>%
+  arrange(Fingerprint, site, sampling_design) %>%
+  mutate(bar = rep(c(rep(Inf, 9), rep(0, 9)), n()/18))
+
+trial2 <- trial %>%
+  mutate(bar = rep(c(rep(-Inf, 9), rep(0, 9)), n()/18))
+```
+
+```{r}
+supfig3 <- ggplot() +
+  theme_bw() +
+  geom_bar(data = trial, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_bar(data = trial2, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_pointrange(data = filter(plot_geo, type == "Geochemistry", p_value_ssa < 0.05), aes(y = fct_relevel(Fingerprint, rev), x = estimate_ssa, colour = sampling_design, xmax= estimate_ssa, xmin = 0), position = position_dodge(width = 0.5), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0,0.01), limits = c(-1, 1)) +
+  scale_colour_viridis_d() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.spacing.x = unit(5, "mm")) +
+  labs(title = "Geochemistry - Specific Surface Area", y = "Fingerprint", x = "Pearsons correlation coefficient") +
+  facet_grid(type~site)
+supfig3
+saveRDS(supfig3, file = here::here("./images/supfig3.rds"))
+```
+
+```{r}
+supfig4 <- ggplot() +
+  theme_bw() +
+  geom_bar(data = trial, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_bar(data = trial2, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_pointrange(data = filter(plot_geo, type == "Geochemistry", p_value_om < 0.05), aes(y = fct_relevel(Fingerprint, rev), x = estimate_om , colour = sampling_design, xmax= estimate_om, xmin = 0), position = position_dodge(width = 0.5), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0,0.01), limits = c(-1, 1)) +
+  scale_colour_viridis_d() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.spacing.x = unit(5, "mm")) +
+  labs(title = "Geochemistry - Organic matter (%)", y = "Fingerprint", x = "Pearsons correlation coefficient") +
+  facet_grid(type~site)
+supfig4
+saveRDS(supfig4, file = here::here("./images/supfig4.rds"))
+#ggsave(filename = "Figures/om_geo_corr.png", plot = p2, height = 200, width = 174, units = "mm", dpi = 600)
+```
+
+### geochem examples
+
+```{r}
+example_fingerprint <- c("Al", "Cu", "Mn", "Tl")
+
+ggplot(data = filter(plot_geo_2, property == "specific_surface_area"), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  facet_wrap(~Fingerprint, scales = "free")
+
+
+ggplot(data = filter(plot_geo_2, property == "OM"), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  facet_wrap(~Fingerprint, scales = "free")
+
+
+prop.labs <- c("Specific Surface Area", "Organic Matter")
+names(prop.labs) <- c("specific_surface_area", "OM")
+
+p_ssa <- ggplot(data = filter(plot_geo_2, property == "specific_surface_area", Fingerprint %in% example_fingerprint), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  theme(strip.background.y = element_blank(),
+        strip.text.y = element_blank(),
+        legend.title = element_blank()) +
+  labs(x = expression(paste("Specific Surface Area (", m^2*~kg^{-1}, ")")), y = "Concentration (ppm)") +
+  scale_colour_viridis_d() +
+  facet_grid(Fingerprint~ property, scales = "free", labeller = labeller(property = prop.labs))
+p_ssa
+
+p_om <- ggplot(data = filter(plot_geo_2, property == "OM", Fingerprint %in% example_fingerprint), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.title = element_blank()) +
+  labs(x = "Organic Matter (%)") +
+  scale_colour_viridis_d() +
+  facet_grid(Fingerprint~ property, scales = "free", labeller = labeller(property = prop.labs))
+p_om
+```
+
+```{r}
+#| label: fig-geochem-corr
+#| fig-cap: "Exploring the relation between select geochemical concentrations and specific surface area and soil organic matter content. Solid lines indicate linear relation for each site and sampling design independently and dashed lines indicate linear relation for each sampling design with data combined across both sites."
+p3 <- p_ssa + p_om +
+  plot_layout(guides = 'collect')
+p3
+
+#ggsave(filename = "Figures/geo_corr_example.png", plot = p3, height = 200, width = 174, units = "mm", dpi = 600)
+```
+
+### Colour plotting
+```{r}
+plot_colour <- corr_colour %>%
+  bind_rows(corr_colour2) %>%
+  mutate(site = fct_relevel(site, c("Agriculture", "Forest", "Combined"))) %>%
+  mutate(Fingerprint = fct_relevel(Fingerprint,
+      c("R", "G", "B", "x", "y", "Y", "X", "Z", "L", "a", "b", "u", "v", "c", "h"))) %>%
+  mutate(Fingerprint = fct_recode(Fingerprint, 
+    "italic(`a*`)" = "a", "italic(`b*`)" = "b", "italic(`c*`)" = "c", "italic(`h*`)" = "h", 
+    "italic(`u*`)" = "u",  "italic(`v*`)" = "v"))
+
+plot_colour %>%
+  filter(p_value_om < 0.05) %>%
+  group_by(site) %>%
+  summarise(n = n())
+
+plot_colour %>%
+  filter(p_value_om < 0.05) %>%
+  group_by(site, sampling_design) %>%
+  summarise(n = n())
+
+plot_colour_2 <- colour %>%
+  left_join(psa) %>%
+  left_join(om) %>%
+  pivot_longer(cols = X:B, names_to = "Fingerprint", values_to = "value") %>%
+  pivot_longer(cols = c("specific_surface_area", "OM", "dx_50"), names_to = "property", values_to = "value2") %>%
+  mutate(Fingerprint = fct_relevel(Fingerprint,
+                                   c("R", "G", "B", "x", "y", "Y", "X", "Z", "L", "a", "b", "u", "v", "c", "h"))) %>%
+  mutate(Fingerprint = fct_recode(Fingerprint, 
+                                  "italic(`a*`)" = "a", "italic(`b*`)" = "b", "italic(`c*`)" = "c", "italic(`h*`)" = "h", 
+                                  "italic(`u*`)" = "u",  "italic(`v*`)" = "v"))
+
+trial3 <- plot_colour %>%
+  arrange(Fingerprint, site, sampling_design) %>%
+  #mutate(n()) 
+  mutate(bar = c(rep(c(rep(Inf, 9), rep(0, 9)), 7), Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf))
+
+trial4 <- trial3 %>%
+  mutate(bar = c(rep(c(rep(-Inf, 9), rep(0, 9)), 7), -Inf, -Inf, -Inf, -Inf, -Inf, -Inf, -Inf, -Inf, -Inf))
+```
+
+```{r}
+
+supfig1 <- ggplot() +
+  theme_bw() +
+  geom_bar(data = trial3, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_bar(data = trial4, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_pointrange(data = filter(plot_colour, type == "Colour", p_value_ssa < 0.05), aes(y = fct_relevel(Fingerprint, rev), x = estimate_ssa, colour = sampling_design, xmax= estimate_ssa, xmin = 0), position = position_dodge(width = 0.5), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0,0.01), limits = c(-1, 1)) +
+  scale_y_discrete(labels = label_parse()) +
+  scale_colour_viridis_d() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.spacing.x = unit(5, "mm")) +
+  labs(title = "Colour - Specific Surface Area", y = "Fingerprint", x = "Pearsons correlation coefficient") +
+  facet_grid(type~site)
+supfig1
+saveRDS(supfig1, file = here::here("./images/supfig1.rds"))
+```
+
+```{r}
+supfig2 <- ggplot() +
+  theme_bw() +
+  geom_bar(data = trial3, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_bar(data = trial4, aes(y = fct_relevel(Fingerprint, rev), x = bar), fill ="grey20", position="identity", stat = "identity", alpha = 0.1) +
+  geom_pointrange(data = filter(plot_colour, type == "Colour", p_value_om < 0.05), aes(y = fct_relevel(Fingerprint, rev), x = estimate_om , colour = sampling_design, xmax= estimate_om, xmin = 0), position = position_dodge(width = 0.5), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0,0.01), limits = c(-1, 1)) +
+  scale_y_discrete(labels = label_parse()) +
+  scale_colour_viridis_d() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.spacing.x = unit(5, "mm")) +
+  labs(title = "Colour - Organic matter (%)", y = "Fingerprint", x = "Pearsons correlation coefficient") +
+  facet_grid(type~site)
+supfig2
+saveRDS(supfig2, file = here::here("./images/supfig2.rds"))
+```
+
+### Colour examples
+```{r}
+example_fingerprint_col <- c("R", "x", "italic(`c*`)", "italic(`u*`)")
+
+ggplot(data = filter(plot_colour_2, property == "specific_surface_area"), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  facet_wrap(~Fingerprint, scales = "free", labeller = label_parsed)
+
+
+ggplot(data = filter(plot_colour_2, property == "OM"), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  facet_wrap(~Fingerprint, scales = "free", labeller = label_parsed)
+
+
+p_ssa_col <- ggplot(data = filter(plot_colour_2, property == "specific_surface_area", Fingerprint %in% example_fingerprint_col), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  theme(strip.background.y = element_blank(),
+        strip.text.y = element_blank(),
+        legend.title = element_blank()) +
+  labs(x = expression(paste("Specific Surface Area (", m^2*~kg^{-1}, ")")), y = "Colour Coefficient Value") +
+  scale_colour_viridis_d() +
+  facet_grid(Fingerprint~ property, scales = "free", labeller = labeller(property = prop.labs))
+p_ssa_col
+
+p_om_col <- ggplot(data = filter(plot_colour_2, property == "OM", Fingerprint %in% example_fingerprint_col), aes(x = value2, y = value, colour = sampling_design, shape = site)) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", se = F) + 
+  stat_smooth(aes(colour = sampling_design, shape = NULL), method = "lm", se = F, linetype="dashed") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.title = element_blank()) +
+  labs(x = "Organic Matter (%)") +
+  scale_colour_viridis_d() +
+  facet_grid(Fingerprint~ property, scales = "free", labeller = labeller(property = prop.labs, Fingerprint = label_parsed))
+p_om_col
+```
+
+```{r}
+#| label: fig-colour-corr
+#| fig-cap: "Exploring the relation between select colour coefficients and specific surface area and soil organic matter content. Solid lines indicate linear relation for each site and sampling design independently and dashed lines indicate linear relation for each sampling design with data combined across both sites."
+p6 <- p_ssa_col + p_om_col +
+  plot_layout(guides = 'collect')
+p6
+```
+
+## Overall Summary
+```{r}
+summary <- corr_colour %>%
+  bind_rows(corr_colour2, corr_geo, corr_geo2) %>%
+  pivot_longer(cols = c(p_value_ssa, p_value_d50, p_value_om), names_to = "analysis", values_to = "pvalue") %>%
+  filter(analysis != "p_value_d50") %>%
+  group_by(site, analysis, type, sampling_design) %>%
+  summarise(n = n(),
+            significant = sum(pvalue < 0.05, na.rm = TRUE),
+            per_sig = sum(pvalue < 0.05, na.rm = TRUE)/n()*100) %>%
+  ungroup() %>%
+  mutate(analysis = fct_recode(analysis, "Organic matter" = "p_value_om", "SSA" = "p_value_ssa")) %>%
+  rename("Site" = "site", "Property" = "analysis", "No. fingerprints" = "n", "Fingerprint" = "type", "No. p < 0.05" = "significant", "% p<0.05" = "per_sig")
+```
+
+```{r}
+suptab3 <- summary |>
+  group_by(sampling_design) |>
+  gt() |>
+  fmt_number(columns = "% p<0.05", decimals = 1) |>
+  tab_style(style =  cell_text(weight = "bold", align = "center"), locations =  cells_row_groups()) |>
+  tab_style(style =  cell_text(weight = "bold", align = "left"), locations =  cells_column_labels()) |>
+  tab_style(style =  cell_text(align = "left"), locations =  cells_body())
+suptab3
+saveRDS(suptab3, file = here::here("./images/suptab3.rds"))
+```
+

@@ -1,0 +1,134 @@
+---
+title: MixSIAR results- Transect source, design specific mixture
+author: Alex Koiter
+---
+  
+## Load Libraries
+```{r}
+library(tidyverse)
+library(MixSIAR)
+```
+
+## Fingerprints
+```{r}
+fingerprints <- c("Li", "Cu", "Ca", "Be", "Co")
+```
+
+## Load in data
+```{r}
+geo_results <- read.csv(here::here("./notebooks/Geochemistry analysis - Copy 2.csv")) %>%
+  pivot_longer(cols = Ag:Zr, names_to = "Fingerprint", values_to = "value") %>%
+  filter(Fingerprint %in% c("Ag", "Al", "As","B","Ba","Be","Bi","Ca","Cd","Ce","Co", "Cr", "Cs", "Cu", "Fe", "Ga", "Hf", "Hg", "In", "K", "La", "Li", "Mg", "Mn", "Mo", "Nb", "Ni", "P", "Pb", "Rb", "S", "Sb", "Sc", "Se", "Sn", "Sr", "Te", "Th", "Tl", "U", "V", "Y", "Zn", "Zr")) %>% # excludes fingerprints that are below level of detection
+  dplyr::select(-X) %>% # don't need this column
+  filter(sample_design %in% c("Grid", "Transect", "Likely to erode")) 
+
+col_results <- read.csv(here::here("./notebooks/final results revised.csv")) %>%
+  pivot_longer(cols = X:B, names_to = "Fingerprint", values_to = "value") %>%
+  dplyr::select(-X.1) %>% # don't need this column
+  filter(sample_design %in% c("Grid", "Transect", "Likely to erode")) %>%
+  mutate(Fingerprint = paste0(Fingerprint, "_col")) # appended _col as some of the colour coefficients have the same id eg Boron = B and Blue also = B
+
+
+# Bind data sets
+results <- geo_results %>%
+  bind_rows(col_results) %>%
+  filter(Fingerprint %in% fingerprints)
+```
+
+## Virtual mixtures
+```{r}
+proportions <- seq(0, 1, 0.05)
+
+mixtures <- results %>%
+  filter(sample_design %in% c("Transect")) %>% 
+  group_by(Fingerprint, site) %>%
+  summarise(avg =  mean(value)) %>%
+  pivot_wider(names_from = site, values_from = avg) %>%
+  mutate(mix_ag = map(Agriculture, ~.x * (1 - proportions)),
+         mix_forest = map(Forest, ~.x * proportions)) %>%
+  group_by(Fingerprint, Agriculture, Forest) %>%
+  summarize(mix = map2(mix_ag, mix_forest, ~data.frame(mix = .x + .y, prop_forest = proportions))) %>%
+  unnest(mix) %>%
+  pivot_wider(id_cols = prop_forest, names_from = Fingerprint, values_from = mix) %>%
+  nest(.by = prop_forest) %>%
+  mutate(path = here::here(paste0("./notebooks/Mixtures_transect/", prop_forest, ".csv")))
+
+mixtures %>%
+  select(x = data, file = path) %>%
+  pwalk(write_csv)
+```
+
+## Sources
+```{r}
+sources <- results %>%
+  filter(sample_design == "Transect") %>%
+  group_by(site, Fingerprint) %>%
+  summarise(Mean = mean(value),
+            SD = sd(value)) %>%
+  pivot_longer(cols = c("Mean", "SD"), names_to = "parameter", values_to = "value") %>%
+  mutate(variable = paste0(parameter, Fingerprint), parameter = NULL, Fingerprint = NULL) %>%
+  pivot_wider(names_from = variable, values_from = value) %>%
+  mutate(n = 14) %>%
+  ungroup()
+
+write_csv(x = sources, file = here::here("./notebooks/Mixtures_transect/source.csv"))
+```
+
+## Trophic enrichment factor (0)
+```{r}
+tef <- mutate(sources, across(where(is.numeric), ~0)) %>%
+  select(-n)
+write_csv(x = tef, file = here::here("./notebooks/Mixtures_transect/tef.csv"))
+```
+
+## Unmixing
+```{r}
+model_run <- mixtures |>
+  mutate(
+    mix = map(path, ~load_mix_data(filename = .x,
+                                   iso_names = fingerprints,
+                                   factors = NULL,
+                                   fac_random = NULL,
+                                   fac_nested = NULL,
+                                   cont_effects = NULL)),
+    source = map(mix, ~load_source_data(filename = here::here("./notebooks/Mixtures_transect/source.csv"),
+                                        source_factors = NULL, 
+                                        conc_dep = FALSE, 
+                                        data_type = "means", 
+                                        .x)),
+    discr = map(mix, ~load_discr_data(filename = here::here("./notebooks/Mixtures_transect/tef.csv"), .x)))
+
+model_run <- model_run |> 
+  mutate(filename = here::here(paste0("./notebooks/Mixtures_transect/MixSIAR_", prop_forest, ".txt")))
+
+model_run |>
+  select(filename, mix, source) |>
+  mutate(resid_err = FALSE, process_err = TRUE) |>
+  pwalk(write_JAGS_model)
+
+models <- model_run %>%
+  select(prop_forest, mix, source, discr, model_filename = filename) %>%
+  mutate(run = "normal", alpha.prior = 1) %>%
+  #slice(1:2) %>%
+  mutate(model = pmap(.l = select(., -prop_forest), run_model))
+```
+
+## Combine all model runs
+```{r}
+final_results <- models %>%
+  mutate(output = map(model, ~ as.data.frame(.x$BUGSoutput$sims.matrix) %>%
+                       select("Agriculture" = `p.global[1]`, "Forest" = `p.global[2]`)
+                     )) %>%
+  unnest(output)
+
+write_csv(x = final_results, file = here::here("./notebooks/Mixtures_transect/transect_final_results.csv"))
+```
+
+## Sneek peek
+```{r}
+ggplot(data = final_results, aes(x = as.factor(prop_forest), y = Agriculture)) +
+  geom_boxplot() +
+  theme_bw() +
+  scale_y_continuous(expand = c(0,0.01))
+```
+                     

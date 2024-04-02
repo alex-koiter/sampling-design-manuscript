@@ -8,10 +8,28 @@ format:
   html:
     toc: true
     comments:
-      hypothesis: true
-  docx: default
+      hypothesis: false
+  docx:
+    reference-doc: custom-reference-doc.docx
+    link-citations: true
+    link-bibliography: true
   jats: default
-  agu-pdf: default
+  elsevier-pdf: default
 
+crossref:
+  custom:
+    - kind: float
+      key: suppplot
+      latex-env: suppplot
+      reference-prefix: Figure S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Figure
+    - kind: float
+      key: supptab
+      latex-env: supptab
+      reference-prefix: Table S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Table
 
-
+supptab-cap-location: top
+suppplot-cap-location: bottom

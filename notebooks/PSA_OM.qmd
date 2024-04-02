@@ -1,0 +1,95 @@
+---
+title: Plotting SSA and SOM
+author: Alex Koiter
+---
+  
+## Load Libraries
+```{r}  
+library(tidyverse)
+library(viridis)
+library(patchwork)
+```
+
+## Load data
+```{r}
+psa <- read.csv(here::here("./notebooks/PSA_data.csv")) %>%
+  rename(site = Site) %>%
+  select(site, sample_number, sampling_design, dx_50, specific_surface_area) %>%
+  filter(sampling_design != "Fine scale") %>%
+  mutate(sampling_design = fct_relevel(sampling_design, "Grid" , "Transect","Likely to erode")) %>%
+  mutate(sig_letter = case_when(site == "Agriculture" ~ "a",
+                                site == "Forest" ~ "b")) %>%
+  group_by(site, sampling_design) %>%
+  mutate(ymax = max(specific_surface_area)+60)
+
+om <- read.csv(here::here("./notebooks/OM_data.csv")) %>%
+  rename(site = Site, sampling_design = Sampling_Design, sample_number = Sample_Number) %>%
+  select(OM, site, sampling_design, sample_number) %>%
+  filter(sampling_design != "Fine scale") %>%
+  mutate(site = recode(site, Agricultural = "Agriculture")) %>%
+  mutate(sampling_design = fct_relevel(sampling_design, "Grid" , "Transect","Likely to erode")) %>%
+  mutate(sig_letter = case_when(site == "Agriculture" ~ "a",
+                                site == "Forest" ~ "b")) %>%
+  group_by(site, sampling_design) %>%
+  mutate(ymax = max(OM)+1)
+```
+
+
+## Stats
+
+```{r}
+wilcox.test(specific_surface_area ~ site, data = filter(psa, sampling_design == "Grid")) 
+wilcox.test(specific_surface_area ~ site, data = filter(psa, sampling_design == "Transect")) 
+wilcox.test(specific_surface_area ~ site, data = filter(psa, sampling_design == "Likely to erode")) 
+
+wilcox.test(OM ~ site, data = filter(om, sampling_design == "Grid")) 
+wilcox.test(OM ~ site, data = filter(om, sampling_design == "Transect")) 
+wilcox.test(OM ~ site, data = filter(om, sampling_design == "Likely to erode")) 
+```
+
+
+## Plotting
+```{r}
+#| label: fig-ssasom-plot
+#| fig-cap: "Specific surface area and soil organic matter for the agricultural and forested sites as determined by the three sampling designs."
+p1 <- ggplot(data = psa, aes(x = sampling_design, y = specific_surface_area, fill = site)) +
+  geom_boxplot() +
+    geom_text(data = select(psa, sampling_design, ymax, sig_letter) |> distinct(), 
+            position = position_dodge(width = 0.75), aes(y = ymax, label = sig_letter, group = site), size = 2.5) +
+  theme_bw(base_size = 10) +
+  scale_y_continuous(expand =c(0,0), limits = c(250, 2500), breaks = seq(0, 2500, 500)) +
+  labs(y = expression(paste("Specific Surface Area (", m^2*~kg^{-1}, ")"))) +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust=1),
+        legend.position = "none") +
+  scale_fill_viridis(discrete = TRUE, begin = 0, end = 0.6)
+
+p2 <- ggplot(data = om, aes(x = sampling_design, y = OM, fill = site)) +
+  geom_boxplot() +
+  geom_text(data = select(om, sampling_design, ymax, sig_letter) |> distinct(), 
+            position = position_dodge(width = 0.75), aes(y = ymax, label = sig_letter, group = site), size = 2.5) +
+  theme_bw(base_size = 10) +
+  scale_y_continuous(expand =c(0,0), limits = c(0, 30), breaks = seq(0, 30, 5)) +
+  labs(y = "Organic Matter (%)") +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust=1)) +
+  scale_fill_viridis(discrete = TRUE, begin = 0, end = 0.6)
+
+p3 <- p1 +p2 + 
+  plot_layout(guides = 'collect') & theme(legend.position ="top")
+p3
+
+#ggsave(filename = here::here("./images/OM_PSA.png"), plot = p3, height = 80,  width = 84, units = "mm", dpi = 600)
+```
+
+## Summary
+```{r}
+om %>%
+  full_join(psa) %>%
+  pivot_longer(cols = c(specific_surface_area, OM, dx_50), names_to = "property", values_to = "value") %>%
+  group_by(sampling_design, site, property) %>%
+  summarise(avg = round(mean(value), 1),
+            sd = round(sd(value), 1))
+```
