@@ -1,0 +1,44 @@
+---
+title: "Colour space abbreviations"
+author: Alex Koiter
+html-table-processing: none
+---
+
+## Load Libraries
+```{r}
+library(tidyverse)
+library(gt)
+```
+
+```{r}
+abbrev <- tribble(
+  ~`Colour space model`, ~Parameter, ~Abbreviation,
+  "RGB",                  "Red",      "R",
+  "RGB",                  "Green",    "G",
+  "RGB",                  "Blue",     "B",
+  "CIE xyY",              "Chromatic coordinate x",     "x",
+  "CIE xyY",              "Chromatic coordinate y",     "y",
+  "CIE xyY",              "Brightness",     "Y",
+  "CIE LAB",              "Metric lightness function",     "L",
+  "CIE LAB",              "Chromatic coordinate opponent red–green scales",     "a*",
+  "CIE LAB",              "Chromatic coordinate opponent blue–yellow scales",     "b*",
+  "CIE LUV",              "Chromatic coordinate opponent red–green scales",     "u*",
+  "CIE LUV",              "Chromatic coordinate opponent blue–yellow scales",     "v*",
+  "CIE LCH",              "CIE hue",     "c*",
+  "CIE LCH",              "CIE chroma",     "h*",)
+  
+```
+
+
+```{r}
+
+suptab1 <- abbrev |>
+  group_by(`Colour space model`) |>
+  gt() |>
+  tab_style(style =  cell_text(weight = "bold", align = "center"), locations =  cells_row_groups()) |>
+  tab_style(style =  cell_text(align = "left"), locations =  cells_body()) |>
+  tab_style(style =  cell_text(weight = "bold", align = "left"), locations =  cells_column_labels())
+suptab1
+saveRDS(suptab1, file = here::here("./images/suptab1.rds"))
+```
+

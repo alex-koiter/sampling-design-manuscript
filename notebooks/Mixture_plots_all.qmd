@@ -1,0 +1,248 @@
+---
+title: MixSIAR results plotting and model performance - composite mixtures
+author: Alex Koiter
+html-table-processing: none
+---
+  
+## Load Libraries
+```{r}
+library(tidyverse)
+library(patchwork)
+library(scoringRules)
+library(viridis)
+library(gt)
+```
+
+## Load data
+```{r}
+all_grid <- read_csv(here::here("./notebooks/Mixtures_all_grid/grid_final_results.csv")) %>%
+  mutate(sampling_design = "Grid")
+
+all_transect <- read_csv(here::here("./notebooks/Mixtures_all_transect/transect_final_results.csv")) %>%
+  mutate(sampling_design = "Transect")
+
+all_likely <- read_csv(here::here("./notebooks/Mixtures_all_likely/likely_final_results.csv")) %>%
+  mutate(sampling_design = "Likely to erode")
+
+all <- all_grid %>%
+  bind_rows(all_transect, all_likely) %>%
+  mutate(sampling_design = fct_relevel(sampling_design, "Grid", "Transect", "Likely to erode"))
+```
+
+## Plotting
+```{r}
+#| label: fig-unmixing-plot
+#| fig-cap: "Comparison of the posterior distribution of the modeled proportion of forest source to the proportion of forest source in the virtual mixtures for each of the three sampling designs."
+mixing_plot1 <- ggplot(data = all, aes(x = as.factor(prop_forest), y = Forest, fill = sampling_design)) +
+  geom_boxplot(size = 0.1, outlier.size = 0.1) +
+  theme_bw() +
+  scale_y_continuous(expand = c(0,0.01)) +
+  labs(y = "Modelled Forest Proportion", x ="Virtual Mixture Forest Proportion") +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  scale_fill_viridis_d()
+mixing_plot1
+
+```
+
+```{r}
+#| label: fig-unmixing-diff-plot
+#| fig-cap: " Differences in the proportions between modeled and virtual mixtures."
+mixing_plot2 <- ggplot(data = all, aes(x = as.factor(prop_forest), y = Forest - prop_forest, fill = sampling_design)) +
+  geom_hline(yintercept = 0) +
+  geom_boxplot(size = 0.1, outlier.size = 0.1) +
+  theme_bw() +
+  scale_y_continuous(expand = c(0,0.01), limits = c(-0.5, 0.5)) +
+  labs(y = "Proportion Difference (Modelled - Mixture)", x ="Virtual Mixture Forest Proportion") +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  scale_fill_viridis_d() +
+  annotate(geom = "text", x = "0.5", y = 0.5, label = "Over estimation", vjust = 1) +
+  annotate(geom = "text", x = "0.5", y = -0.5, label = "Under estimation", vjust = 0)
+mixing_plot2
+
+```
+
+```{r}
+all %>%
+  select(prop_forest, Agriculture, Forest, sampling_design) %>%
+  mutate(diff = Forest - prop_forest) %>%
+  group_by(sampling_design, prop_forest) %>%
+  summarize(median = median(diff)) %>%
+  print(n=63)
+
+plot1 <- all %>%
+  select(prop_forest, Agriculture, Forest, sampling_design) %>%
+  pivot_longer(cols = c(Agriculture,  Forest), names_to = "source", values_to = "value") %>%
+  group_by(prop_forest, sampling_design, source) %>%
+  summarise(`0.5 quantile` = median(value),
+            `0.25 quantile` = quantile(value, 0.25),
+            `0.75 quantile` = quantile(value, 0.75),
+            `0.975 quantile` = quantile(value, 0.975),
+            `0.025 quantile` = quantile(value, 0.025)) %>%
+  pivot_longer(cols = `0.5 quantile`:`0.025 quantile`, names_to = "quartile", values_to = "value") %>%
+  #filter(source == "Forest") %>%
+  pivot_wider(names_from = sampling_design, values_from = value)
+
+plot1 %>%
+  group_by(source, quartile) %>%
+  summarise(r = round(cor(Transect, `Likely to erode`), 3)) 
+plot1 %>%
+  group_by(source, quartile) %>%
+  summarise(r = round(cor(Grid, `Likely to erode`), 3)) 
+plot1 %>%
+  group_by(source, quartile) %>%
+  summarise(r = round(cor(Transect, Grid), 3)) 
+
+p1 <- ggplot(data = plot1, aes(x = Grid, y = Transect, colour = source)) +
+  geom_point() +
+  theme_bw() +
+  geom_abline(slope = 1) +
+  labs(x = "Grid", y = "Transect") +
+  scale_y_continuous(expand = c(0,0.01)) +
+  scale_x_continuous(expand = c(0,0.01)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_colour_manual(values = c("#C5B477", "#439078")) +
+  facet_wrap(~quartile, ncol = 5)
+
+p2 <- ggplot(data = plot1, aes(x = Grid, y = `Likely to erode`, colour = source)) +
+  geom_point() +
+  theme_bw() +
+  geom_abline(slope = 1) +
+  labs(x = "Grid", y = "Likely to erode") +
+  scale_y_continuous(expand = c(0,0.01)) +
+  scale_x_continuous(expand = c(0,0.01)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_colour_manual(values = c("#C5B477", "#439078")) +
+  facet_wrap(~quartile, ncol = 5)
+
+p3 <- ggplot(data = plot1, aes(x = Transect, y = `Likely to erode`, colour = source)) +
+  geom_point() +
+  theme_bw() +
+  geom_abline(slope = 1) +
+  labs(x = "Transect",y = "Likely to erode") +
+  scale_y_continuous(expand = c(0,0.01)) +
+  scale_x_continuous(expand = c(0,0.01)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_colour_manual(values = c("#C5B477", "#439078")) +
+  facet_wrap(~quartile, ncol = 5)
+
+mixing_plot3 <- p1 / p2 / p3 + plot_layout(guides = "collect") & theme(legend.position = 'bottom', legend.title = element_blank())
+mixing_plot3
+#ggsave(plot = mixing_plot3, filename = "Figures R1/Mixture_all_1to1.png", width = 174, height = 200, units = "mm", dpi =600)
+```
+
+## Model performance
+
+```{r}
+summary_1 <- all %>%
+  select(prop_forest, Agriculture, Forest, sampling_design) %>%
+  pivot_longer(cols = c(Agriculture,  Forest), names_to = "source", values_to = "value") %>%
+  group_by(sampling_design, prop_forest, source) %>%
+  summarise(median = median(value),
+            q25 = quantile(value, 0.25),
+            q75 = quantile(value, 0.75),
+            W50 = quantile(value, 0.75) - quantile(value, 0.25),
+            W95 = quantile(value, 0.975) - quantile(value, 0.025),
+            P50 = sum(value[value < quantile(value, 0.75) & value > quantile(value, 0.25)])/n(),
+            P95 = sum(value[value < quantile(value, 0.975) & value > quantile(value, 0.025)])/n()) %>%
+  group_by(sampling_design, source) %>%
+  summarise(W50 = mean(W50),
+            W95 = mean(W95),
+            P50 = mean(P50),
+            P95 = mean(P95))
+
+
+summary_2 <- all %>%
+  mutate(prop_ag = 1 - prop_forest) %>%
+  group_by(prop_forest, sampling_design) %>%
+  summarise(CRPS_forest = crps_sample(y = unique(prop_forest), dat = Forest),
+            CRPS_ag = crps_sample(y = unique(prop_ag), dat = Agriculture)) %>%
+  group_by(sampling_design) %>%
+  summarise(Forest = mean(CRPS_forest),
+            Agriculture = mean(CRPS_ag)) %>%
+  pivot_longer(cols = c(Forest, Agriculture), names_to = "source", values_to = "CRPS")
+
+CRPS_plot <- all %>%
+  mutate(prop_ag = 1 - prop_forest) %>%
+  group_by(prop_forest, prop_ag, sampling_design) %>%
+  summarise(Forest = crps_sample(y = unique(prop_forest), dat = Forest),
+            Agriculture = crps_sample(y = unique(prop_ag), dat = Agriculture)) 
+```
+
+```{r}
+supfig8 <- ggplot(data = CRPS_plot, aes(x = prop_forest, y = Forest, fill = sampling_design)) +
+  geom_line(aes(colour = sampling_design)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  scale_y_continuous(expand = c(0,0.01)) +
+  scale_x_continuous(expand = c(0,0.01)) +
+  scale_fill_viridis_d() +
+  scale_colour_viridis_d() +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  labs(x = "Virtual Mixture Forest Proportion", y = "CRPS") 
+supfig8
+saveRDS(supfig8, file = here::here("./images/supfig8.rds"))
+# ggsave(plot = mixing_plot4, filename = "Figures R1/Mixture_all_CRPS.png", width = 84, height = 84, units = "mm", dpi =600)
+```
+
+```{r}
+summary_3 <- all %>%
+  select(prop_forest, Agriculture, Forest, sampling_design) %>%
+  #mutate(prop_ag = 1 - prop_forest) %>%
+  pivot_longer(cols = c(Agriculture,  Forest), names_to = "source", values_to = "value") %>%
+  #pivot_longer(cols = c(prop_forest,  prop_ag), names_to = "proportion", values_to = "actual") %>%
+  group_by(sampling_design, source, prop_forest) %>%
+  mutate(error50 = ifelse(value >= quantile(value, 0.25) & value <= quantile(value, 0.75), 0,
+                     ifelse(value < quantile(value, 0.25), quantile(value, 0.25) - value,
+                            quantile(value, 0.75) - value)),
+         error95 = ifelse(value >= quantile(value, 0.025) & value <= quantile(value, 0.975), 0,
+                          ifelse(value < quantile(value, 0.025), quantile(value, 0.025) - value,
+                                 quantile(value, 0.975) - value)),
+         Main = value > .5,
+         Main50 = quantile(value, 0.75) > .5,
+         Main95 = quantile(value, 0.975) > .5,
+         Hit50 = ifelse(Main == T & Main50 == T, T, F),
+         Hit95 = ifelse(Main == T & Main95 == T, T, F),
+         Miss50 = ifelse(Main == T & Main50 == F, T, F),
+         Miss95 = ifelse(Main == T & Main95 == F, T, F),
+         FA50 = ifelse(Main == F & Main50 == T, T, F),
+         FA95 = ifelse(Main == F & Main95 == T, T, F)) %>%
+  group_by(sampling_design, source) %>%
+  summarise(MAE50 = mean(abs(error50)),
+            MAE95 = mean(abs(error95)),
+            ME50 = mean(error50),
+            ME95 = mean(error95),
+            NSE50 = 1 - (sum(error50^2)) / sum((value - mean(value))^2),
+            NSE95 = 1 - (sum(error95^2)) / sum((value - mean(value))^2),
+            CSI50 = sum(Hit50)/(sum(Hit50) + sum(Miss50) + sum(FA50)),
+            CSI95 = sum(Hit95)/(sum(Hit95) + sum(Miss95) + sum(FA95)),
+            HR50 = sum(Hit50) / (sum(Hit50) + sum(Miss50)),
+            HR95 = sum(Hit95) / (sum(Hit95) + sum(Miss95)))
+```
+
+```{r}
+summary_all <- summary_3 %>%
+  right_join(summary_2) %>%
+  right_join(summary_1) %>% 
+  ungroup() %>%
+  mutate(analyis = paste(sampling_design, source)) %>%
+  select(-sampling_design, -source) %>%
+  pivot_longer(cols = MAE50:P95, names_to = "Parameter", values_to = "value") %>%
+  mutate(value = format(round(value, 2), digits = 2)) %>%
+  pivot_wider(names_from = analyis, values_from = value) %>%
+  mutate(`Evaluation criteria` = case_when(Parameter %in% c("P50", "P95", "W50", "W95") ~ "Uncertainty",
+                                           Parameter %in% c("MAE50", "MAE95", "ME50", "ME95") ~ "Residuals",
+                                           Parameter %in% c("CRPS", "NSE50", "NSE95") ~ "Performance",
+                                           Parameter %in% c("CSI50", "CSI95", "HR50", "HR95") ~ "Contingency"))
+summary_all
+```
+
+```{r}
+#| label: tbl-model-performance
+#| tbl-cap: Model evaluation metrics grouped by sampling design and source.
+
+summary_all |>
+  group_by(`Evaluation criteria`) |>
+  gt()|>
+  tab_style(style =  cell_text(weight = "bold", align = "center"), locations =  cells_row_groups()) |>
+  tab_options(column_labels.font.weight = "bold")
+```
