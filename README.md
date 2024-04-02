@@ -19,7 +19,7 @@ ORCID: 0000-0003-1059-8715
 
 
 
-This manuscript that has been submitted for peer-reviewed at the Journal of Soils and Sediments.
+This manuscript has been submitted for peer-reviewed at the Journal of Soils and Sediments.
 A preview of the manuscript, including notebooks for analysis, can be found at <https://alexkoiter.ca/sampling-design-manuscript/>
 
 ## Abstract
@@ -27,6 +27,6 @@ A preview of the manuscript, including notebooks for analysis, can be found at <
 
 **Methods:** Grid (n=49), transect (n=14), and likely to erode (n=8) sampling designs were used to characterize the geochemical, colour, grain size distribution, and soil organic matter content at two sites under contrasting land uses (agricultural and forested). The impact of the three sampling designs on characterization of fingerprint properties, the relationship between particle size and organic matter content on fingerprint properties, fingerprint selection, source discrimination, and mixing apportionment results were evaluated using a range of methods including 21 virtual mixtures. 
 
-**Results:** The likely to erode design resulted in a unique fingerprint signature compared to the other two sampling designs. The correlation between particle size and organic matter on fingerprint properties varied between fingerprint, source, and sampling design. While the number and composition of the fingerprints selected varied between sampling designs there was strong (100%) discrimination between sources regardless of the sampling approach. The maximum absolute difference between the virtual mixtures and the modeled proportions was 7.65, 7.80, and 8.93% for the grid, transect, and likely to erode sampling designs, respectively. 
+**Results:** The likely to erode design resulted in a unique fingerprint signature compared to the other two sampling designs. The correlation between particle size and organic matter on fingerprint properties varied between fingerprint, source, and sampling design. While the number and composition of the fingerprints selected varied between sampling designs there was strong (100%) discrimination between sources regardless of the sampling approach. The maximum absolute difference between the virtual mixtures and the modeled proportions was 7.7, 7.8, and 8.9% for the grid, transect, and likely to erode sampling designs, respectively. 
 
 **Conclusions:** The likely to erode sampling design was not representative of the upslope areas as characterized by the grid and transect methods. Despite these differences the final apportionment results using virtual mixtures were qualitatively similar between the three sampling designs. Continued work at the watershed scale is needed to fully evaluate the importance of source sampling design on the sediment source fingerprinting approach.
