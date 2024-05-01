@@ -19,7 +19,7 @@ ORCID: 0000-0003-1059-8715
 
 
 
-This manuscript has been submitted for peer-reviewed at the Journal of Soils and Sediments.
+This manuscript has been accepted for publication at the Journal of Soils and Sediments <https://rdcu.be/dGcRf>
 A preview of the manuscript, including notebooks for analysis, can be found at <https://alexkoiter.ca/sampling-design-manuscript/>
 
 ## Abstract
