@@ -41,14 +41,28 @@
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \setcounter{secnumdepth}{5}
 % Make \paragraph and \subparagraph free-standing
+\makeatletter
 \ifx\paragraph\undefined\else
   \let\oldparagraph\paragraph
-  \renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+  \renewcommand{\paragraph}{
+    \@ifstar
+      \xxxParagraphStar
+      \xxxParagraphNoStar
+  }
+  \newcommand{\xxxParagraphStar}[1]{\oldparagraph*{#1}\mbox{}}
+  \newcommand{\xxxParagraphNoStar}[1]{\oldparagraph{#1}\mbox{}}
 \fi
 \ifx\subparagraph\undefined\else
   \let\oldsubparagraph\subparagraph
-  \renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+  \renewcommand{\subparagraph}{
+    \@ifstar
+      \xxxSubParagraphStar
+      \xxxSubParagraphNoStar
+  }
+  \newcommand{\xxxSubParagraphStar}[1]{\oldsubparagraph*{#1}\mbox{}}
+  \newcommand{\xxxSubParagraphNoStar}[1]{\oldsubparagraph{#1}\mbox{}}
 \fi
+\makeatother
 
 
 \providecommand{\tightlist}{%
@@ -79,6 +93,8 @@
 \usepackage{booktabs}
 \usepackage{caption}
 \usepackage{longtable}
+\usepackage{colortbl}
+\usepackage{array}
 \makeatletter
 \@ifpackageloaded{float}{}{\usepackage{float}}
 \floatstyle{plain}
@@ -172,7 +188,7 @@ Fingerprinting Properties}
 \author[1]{Maria Alejandra Luna Miño%
 %
 }
- \ead{steve@curvenote.com} 
+ \ead{lunamima56@brandonu.ca} 
 \author[2]{Alexander J Koiter%
 \corref{cor1}%
 }
@@ -386,7 +402,7 @@ and urban sources \citep[e.g.,][]{carter2003}. The number and nature of
 the potential sources of sediment identified will vary among watersheds.
 This variation is mostly related to geology, geomorphology, soil type,
 hydrology, spatial scale, topography, and land use. The quality of the
-representation of potential sources of sediment are largely based on the
+representation of potential sources of sediment is largely based on the
 sampling design used. The sampling design has multiple and cascading
 effects within the fingerprinting framework, including estimates of mean
 and variance, fingerprint selection, discrimination potential, and
@@ -629,12 +645,13 @@ and likely to erode sampling design of 8.5 \% (SD = 1.4 \%), 7.8 \% (SD
 an average SOM content for the grid, transect and likely to erode
 sampling design of 11.3 (SD = 6.1 \%), 11.6 \% (SD = 6.1 \%), and 2.4 \%
 (SD = 1.2 \%), respectively (Figure~\ref{fig-ssasom-plot}). Across both
-sites the likely to erode sampling design had the lowest SOM content and
-the smallest variability. Between sites the SOM content variability was
-greater in the forested site as compared to the agricultural sites for
-each of the three sampling designs. The SOM content was significantly
-higher in the forested site for the grid and transect sampling designs,
-but the opposite was found using the likely to erode sampling design.
+sites, the likely to erode sampling design had the lowest SOM content
+and the smallest variability. Between sites the SOM content variability
+was greater in the forested site as compared to the agricultural sites
+for each of the three sampling designs. The SOM content was
+significantly higher in the forested site for the grid and transect
+sampling designs, but the opposite was found using the likely to erode
+sampling design.
 
 The SSA of the soil samples was considered as the principal measurement
 of particle size (Figure~\ref{fig-ssasom-plot}). The agricultural site
@@ -645,7 +662,7 @@ pattern with an average SSA of 764 (SD = 134), 790 (SD = 145), and 502
 (SD = 138) \(m^2 kg^{-1}\) for the grid, transect, and likely to erode
 sampling designs, respectively. Regardless of the sampling design used,
 the forested site was comprised of significantly coarser grain material
-compared to the agricultural site. At both sites the grid and transect
+compared to the agricultural site. At both sites, the grid and transect
 designs had comparable grain size results; however, the likely to erode
 design resulted in the coarser estimate of grain size relative to the
 other sampling designs.
@@ -675,9 +692,9 @@ sampling designs for the agricultural and forested sites, respectively
 (Figure~\ref{fig-dunns-test}). The post-hoc test showed that there were
 no significant differences between the grid and transect sampling
 designs at both sites for all colour fingerprints
-(Figure~\ref{fig-dunns-test}). There were also no difference between the
-likely to erode and transect sampling designs for the colour properties
-\emph{R} and \emph{h*} (Figure~\ref{fig-dunns-test}).
+(Figure~\ref{fig-dunns-test}). There were also no differences between
+the likely to erode and transect sampling designs for the colour
+properties \emph{R} and \emph{h*} (Figure~\ref{fig-dunns-test}).
 
 At both sites no significant differences (p \textgreater{} 0.05) were
 found between the different sampling designs for five geochemical
@@ -690,7 +707,7 @@ the grid and transect sampling designs for all geochemical fingerprints.
 In contrast, there were significant difference between the other two
 comparisons with the exceptions of In and Zr
 (Figure~\ref{fig-dunns-test}). Similarly, within the agricultural sites
-there are 18 geochemical fingerprints not show no significant
+there are 18 geochemical fingerprints that show no significant
 differences between the grid and transect sampling designs, nine between
 transect and likely to erode, and four between the grid and likely to
 erode (Figure~\ref{fig-dunns-test}).
@@ -716,7 +733,7 @@ included.}
 \href{https://alex-koiter.github.io/sampling-design-manuscript/notebooks/kruskal-preview.html\#cell-fig-dunns-test}{Testing
 for differences between sites using three different sampling}}
 
-In assessing the correlation between colour and SSA there were clear
+In assessing the correlation between colour and SSA, there were clear
 differences between sites and sampling design
 (\quartosuppplotref{suppplot-supfig1} and
 \quartosupptabref{supptab-corr-summary}). Within the likely to erode
@@ -737,11 +754,11 @@ likely to erode design was greatest when the data was combined. The
 magnitude and direction of the correlations between colour properties
 and SOM is also variable across sampling designs and the grouping of the
 data. For example, the colour coefficient x demonstrates no significant
-correlations when each site is considered independently but the combined
-data demonstrates a positive but weak correlation (r\textsuperscript{2}
-\textless{} 0.4) for the grid and transect designs and a stronger and
-negative correlation (r\textsuperscript{2} = -0.75) for the likely to
-erode design.
+correlations when each site is considered independently, but the
+combined data demonstrates a positive but weak correlation
+(r\textsuperscript{2} \textless{} 0.4) for the grid and transect designs
+and a stronger and negative correlation (r\textsuperscript{2} = -0.75)
+for the likely to erode design.
 
 Similar to the relation between colour and SSA, there were differences
 between sites and sampling designs in assessing the influence of grain
@@ -829,12 +846,12 @@ number remained the same for the likely to erode sampling design
 (tbl-MW). The stepwise DFA further reduced the number of fingerprints to
 16, three, and three grid, transect, and likely to erode designs,
 respectively (Table~\ref{tbl-DFA}). Of note is that the geochemical
-concentrations of Li and Fe as well as the colour coefficient \emph{a*}
-which were selected as the first, second, or third variables in the DFA
-in two of the three sampling designs. The fingerprints selected for all
-three sampling designs classified 100\% of the source samples correctly
-(Table~\ref{tbl-DFA}). Using the design specific mixtures a greater
-number of fingerprints passed the range and Mann Whitney U test;
+concentrations of Li and Fe, as well as the colour coefficient
+\emph{a*}, were selected as the first, second, or third variables in the
+DFA in two of the three sampling designs. The fingerprints selected for
+all three sampling designs classified 100\% of the source samples
+correctly (Table~\ref{tbl-DFA}). Using the design specific mixtures, a
+greater number of fingerprints passed the range and Mann Whitney U test;
 however, the same fingerprints were ultimately selected for all three
 designs by the DFA with 100\% classification
 (\quartosupptabref{supptab-range-test}, \quartosupptabref{supptab-KW-test},
@@ -996,17 +1013,17 @@ geochemical and colour composition in the agricultural field,
 considering the three sampling approaches, was different than the
 forested site (Figure~\ref{fig-pcaplot} and
 \quartosuppplotref{suppplot-supfig5}). The first principal component for
-the grid sampling demonstrate a similar magnitude in loadings where
+the grid sampling demonstrates a similar magnitude in loadings where
 \emph{a*}, \emph{b*}, \emph{c*}, and \emph{x*} are negative and Co, Fe,
 La, Li, Nb, Ni, Sr, and \emph{h*} are positive. The second principal
-component the sites are differentiated mostly by \emph{b*}, \emph{c*},
-and Hg. For the transect sampling, first principal component
-demonstrated a similar magnitude in loadings for all three fingerprints
-(\emph{a*}, Co, and Fe) while the second principal component are
-differentiated by \emph{a*} and Co.~Similarly, the first principal
-component for the likely to erode design demonstrated a similar
-magnitude in loadings for all three fingerprints (Bi, Li, and U) while
-the second principal component are primarily differentiated by U.
+component demonstrates that the sites are differentiated mostly by
+\emph{b*}, \emph{c*}, and Hg. For the transect sampling, first principal
+component demonstrated a similar magnitude in loadings for all three
+fingerprints (\emph{a*}, Co, and Fe) while the second principal
+component are differentiated by \emph{a*} and Co.~Similarly, the first
+principal component for the likely to erode design demonstrated a
+similar magnitude in loadings for all three fingerprints (Bi, Li, and U)
+while the second principal component are primarily differentiated by U.
 
 \begin{figure}[H]
 
@@ -1050,7 +1067,7 @@ sampling designs, with the exception of the CSI95 (Critical success
 index) for the grid sampling where the hit rate for the 95\% interval
 was higher (\textasciitilde10 to 2\%). The CRPS showed a U-shaped
 response with higher values at the 0 and 100\% contributions
-(\quartosuppplotref{suppplot-supfig8}) Overall there was a high degree
+(\quartosuppplotref{suppplot-supfig8}) Overall, there was a high degree
 of similarity in model evaluation metrics. Using the design specific
 mixtures the modeled apportionment and model performance metrics are
 similar to the combined mixtures
@@ -1216,8 +1233,8 @@ less sensitive. The comparison between the grid and transect sampling
 designs resulted in the fewest differences in fingerprinting properties
 (Figure~\ref{fig-dunns-test}). This is likely due to the fact that the
 transect is a subset of the larger grid. The samples collected from the
-likely to erode had a unique fingerprinting properties as compared to
-the other two sampling designs (Figure~\ref{fig-dunns-test} and
+likely to erode had a unique fingerprint as compared to the other two
+sampling designs (Figure~\ref{fig-dunns-test} and
 Figure~\ref{fig-sdplot-test}). The material from likely to erode
 sampling is normally collected at the edge of the field or close to the
 stream where the hydrologic regime is different than up-slope positions
@@ -1368,8 +1385,8 @@ the site but still a consistent difference between the sites.
 In watersheds with heterogeneous lithologies, a sampling approach
 relying on geochemical concentrations will likely be meaningful to
 discriminate between sources based on distinctive geomorphic
-environments \citep{evrard2022}. In this study area the forested site is
-situated closer to the base of the escarpment and there is likely a
+environments \citep{evrard2022}. In this study area, the forested site
+is situated closer to the base of the escarpment and there is likely a
 gradient in soil properties from the apex of the alluvial fan towards
 the distal edge. The clear discrimination between the two sources may
 also be influenced by the observed differences in SOM and particle size.
@@ -1411,7 +1428,7 @@ discrimination between sources and ultimately higher uncertainty in the
 final apportionment results due to the lower precision and accuracy
 surrounding the estimates of the mean and variance for each source. For
 example, the MixSIAR model uses the underlying probability distribution
-of each source which is partly dependent on the sample size. The
+of each source, which is partly dependent on the sample size. The
 inclusion of informative priors can improve model performance with low
 sample numbers, or the mean and variance can be specified as fixed by
 setting an arbitrarily high sample sizes
@@ -1419,7 +1436,7 @@ setting an arbitrarily high sample sizes
 large sample sizes can lead to the detection of very small differences
 between source groups that are not geologically relevant or are
 sensitive to non-conservative behaviour. The latter is typically not an
-issue due to high analytical and labour costs and in some cases the
+issue due to high analytical and labour costs, and in some cases, the
 analytical costs dictate the sample size \citep[e.g.,][]{kieta2023}. For
 the fingerprints selected for the mixing model simulation, in addition
 to differences in the means, the standard deviations were typically
@@ -1748,32 +1765,32 @@ Boudreault et al.~(2018)}
 \begin{longtable*}{ll}
 \toprule
 Parameter & Abbreviation \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{2}{l}{RGB} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Red & R \\ 
 Green & G \\ 
 Blue & B \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{2}{l}{CIE xyY} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Chromatic coordinate x & x \\ 
 Chromatic coordinate y & y \\ 
 Brightness & Y \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{2}{l}{CIE LAB} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Metric lightness function & L \\ 
 Chromatic coordinate opponent red–green scales & a* \\ 
 Chromatic coordinate opponent blue–yellow scales & b* \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{2}{l}{CIE LUV} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Chromatic coordinate opponent red–green scales & u* \\ 
 Chromatic coordinate opponent blue–yellow scales & v* \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{2}{l}{CIE LCH} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 CIE hue & c* \\ 
 CIE chroma & h* \\ 
 \bottomrule
@@ -1871,9 +1888,9 @@ properties.}
 \begin{longtable*}{lclrrr}
 \toprule
 Site & Property & Fingerprint & No. fingerprints & No. p < 0.05 & \% p<0.05 \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{6}{l}{Grid} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Agriculture & Organic matter & Colour & 15 & 14 & $93.3$ \\ 
 Agriculture & Organic matter & Geochemistry & 44 & 14 & $31.8$ \\ 
 Agriculture & SSA & Colour & 15 & 8 & $53.3$ \\ 
@@ -1886,9 +1903,9 @@ Forest & Organic matter & Colour & 15 & 14 & $93.3$ \\
 Forest & Organic matter & Geochemistry & 44 & 34 & $77.3$ \\ 
 Forest & SSA & Colour & 15 & 13 & $86.7$ \\ 
 Forest & SSA & Geochemistry & 44 & 37 & $84.1$ \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{6}{l}{Likely to erode} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Agriculture & Organic matter & Colour & 15 & 7 & $46.7$ \\ 
 Agriculture & Organic matter & Geochemistry & 44 & 4 & $9.1$ \\ 
 Agriculture & SSA & Colour & 15 & 0 & $0.0$ \\ 
@@ -1901,9 +1918,9 @@ Forest & Organic matter & Colour & 15 & 0 & $0.0$ \\
 Forest & Organic matter & Geochemistry & 44 & 1 & $2.3$ \\ 
 Forest & SSA & Colour & 15 & 0 & $0.0$ \\ 
 Forest & SSA & Geochemistry & 44 & 6 & $13.6$ \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{6}{l}{Transect} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 Agriculture & Organic matter & Colour & 15 & 9 & $60.0$ \\ 
 Agriculture & Organic matter & Geochemistry & 44 & 9 & $20.5$ \\ 
 Agriculture & SSA & Colour & 15 & 0 & $0.0$ \\ 
@@ -2164,29 +2181,29 @@ mixtures.}
 \begin{longtable*}{lrrrrrr}
 \toprule
 Parameter & Grid Agriculture & Grid Forest & Transect Agriculture & Transect Forest & Likely to erode Agriculture & Likely to erode Forest \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{7}{l}{Residuals} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 MAE50 & 0.01 & 0.01 & 0.02 & 0.02 & 0.01 & 0.01 \\ 
 MAE95 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 \\ 
 ME50 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 \\ 
 ME95 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{7}{l}{Performance} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 NSE50 & 0.99 & 0.99 & 0.99 & 0.99 & 0.99 & 0.99 \\ 
 NSE95 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
 CRPS & 0.02 & 0.02 & 0.02 & 0.02 & 0.01 & 0.01 \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{7}{l}{Contingency} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 CSI50 & 0.93 & 0.92 & 0.91 & 0.91 & 0.93 & 0.93 \\ 
 CSI95 & 0.82 & 0.86 & 0.81 & 0.80 & 0.87 & 0.87 \\ 
 HR50 & 0.98 & 0.99 & 0.97 & 0.98 & 0.99 & 0.99 \\ 
 HR95 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 \multicolumn{7}{l}{Uncertainty} \\ 
-\midrule
+\midrule\addlinespace[2.5pt]
 W50 & 0.06 & 0.06 & 0.08 & 0.08 & 0.06 & 0.06 \\ 
 W95 & 0.18 & 0.18 & 0.24 & 0.24 & 0.18 & 0.18 \\ 
 P50 & 0.25 & 0.25 & 0.25 & 0.25 & 0.25 & 0.25 \\ 
