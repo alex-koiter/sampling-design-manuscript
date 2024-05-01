@@ -23,7 +23,7 @@ author:
     email: koitera@brandonu.ca
     roles:
       - Principle investigator
-      - Primary author
+      - Author
       - Statistics
       - Visualization
     affiliations:
